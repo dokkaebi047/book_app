@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/book.dart';
 import '../utils/book_storage.dart';
+import '../widgets/add_book_button.dart';
 import 'book_detail_screen.dart';
 import 'book_form_screen.dart';
+import '../widgets/book_list_tile.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -13,7 +15,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   List<Book> books = [];
-  BookStatus? selectedStatus;
 
   @override
   void initState() {
@@ -23,6 +24,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadBooks() async {
     books = await BookStorage.loadBooks();
+    DateTime oneYearAgo = DateTime.now().subtract(const Duration(days: 365));
+    books = books.where((book) => book.status != BookStatus.read || (book.finishedDate != null && book.finishedDate!.isAfter(oneYearAgo))).toList();
     setState(() {});
   }
 
@@ -47,76 +50,16 @@ class _HomeScreenState extends State<HomeScreen> {
     BookStorage.saveBooks(books);
   }
 
-  String _getStatusIcon(BookStatus status) {
-    switch (status) {
-      case BookStatus.onShelf:
-        return 'assets/images/on_shelf.png';
-      case BookStatus.reading:
-        return 'assets/images/reading.png';
-      case BookStatus.read:
-        return 'assets/images/read.png';
-      case BookStatus.postponed:
-        return 'assets/images/postponed.png';
-    }
-  }
-
-  String _getStatusText(BookStatus status) {
-    switch (status) {
-      case BookStatus.onShelf:
-        return 'На полке';
-      case BookStatus.reading:
-        return 'Читаю';
-      case BookStatus.read:
-        return 'Прочитано';
-      case BookStatus.postponed:
-        return 'Отложено';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final filteredBooks = selectedStatus == null
-        ? books
-        : books.where((book) => book.status == selectedStatus).toList();
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('100 книг в год'),
-        actions: [
-          DropdownButton<BookStatus?>(
-            value: selectedStatus,
-            onChanged: (newStatus) {
-              setState(() {
-                selectedStatus = newStatus;
-              });
-            },
-            items: [
-              const DropdownMenuItem(
-                value: null,
-                child: Text('Все'),
-              ),
-              ...BookStatus.values.map(
-                    (status) => DropdownMenuItem(
-                  value: status,
-                  child: Text(_getStatusText(status)),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('100 книг в год')),
       body: ListView.builder(
-        itemCount: filteredBooks.length,
+        itemCount: books.length,
         itemBuilder: (context, index) {
-          final book = filteredBooks[index];
-          return ListTile(
-            leading: Image.asset(
-              _getStatusIcon(book.status),
-              width: 40,
-              height: 40,
-            ),
-            title: Text(book.title),
-            subtitle: Text('${book.author} - ${_getStatusText(book.status)}'),
+          final book = books[index];
+          return BookListTile(
+            book: book,
             onTap: () {
               Navigator.push(
                 context,
@@ -132,18 +75,8 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) =>
-                  BookFormScreen(onSave: (newBook) => addBook(newBook)),
-            ),
-          );
-        },
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: AddBookButton(onBookAdded: addBook),
+
     );
   }
 }
